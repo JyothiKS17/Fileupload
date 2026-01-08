@@ -1,88 +1,42 @@
-pipeline {
-    agent { label 'jfrog' }  // everything runs on JFrog agent
+//Jenkins agents cannot accept direct uploads; all uploads go through the Jenkins controller. So we are uploading the file from local system to jenkins server
 
+pipeline {  //declarative pipeline
+    agent { label 'jfrog' }  //job runs in jfrog node/slave
     parameters {
-        file(name: 'UPLOAD_ZIP', description: 'Upload your zip file here')
+        file(name: 'UPLOAD_ZIP', description: 'Upload your zip file here') //When you click Build with Parameters, Jenkins shows a file upload option and upload
+
+        //Jenkins stores the uploaded file in the workspace of the node. The parameter MY_ZIP contains the full path to the uploaded file /var/lib/jenkins/workspace/
     }
-
+    environment {
+        DEST_DIR = "${WORKSPACE}/unzipped"  //Defines a reusable variable. This is the directory where the zip contents will be extracted
+    }
     stages {
-
-        stage('Verify Upload') {
+        stage('Show uploaded file') {  //Verify that the file upload worked correctly
             steps {
-                script {
-                    def zipFile = "${WORKSPACE}/UPLOAD_ZIP"
-                    echo "Workspace: $WORKSPACE"
-                    echo "Uploaded file path: $zipFile"
-
-                    // Check if file exists
-                    if (!fileExists(zipFile)) {
-                        echo "No file uploaded! Please use 'Build with Parameters'. Skipping unzip."
-                        currentBuild.result = 'SUCCESS'
-                        return
-                    }
-
-                    echo "File exists:"
-                    sh "ls -l '$zipFile'"
-
-                    // Check if file is a valid zip
-                    def isZip = sh(
-                        script: "file '$zipFile' | grep -i zip && echo 'YES' || echo 'NO'",
+                script {        //We are using Groovy logic (new File()). Declarative pipeline needs script {} for advanced logic
+                    def filePath = params.UPLOAD_ZIP   //Full path of the uploaded zip file in the workspace
+                     def fileName = sh(
+                        script: "basename ${filePath}",
                         returnStdout: true
-                    ).trim()
-
-                    if (isZip == 'NO') {
-                        echo "Uploaded file is not a valid zip. Skipping unzip."
-                        currentBuild.result = 'SUCCESS'
-                        return
-                    }
-
-                    // Show original filename
-                    def zipName = sh(
-                        script: "basename '$zipFile' .zip",
-                        returnStdout: true
-                    ).trim()
-                    echo "Original file name (without extension): $zipName"
-
-                    // Check if zip has content
-                    def zipCount = sh(
-                        script: 'unzip -l "$ZIP_FILE" | grep -v "^Archive" | grep -v "^--------" | grep -v "^$" | wc -l',
-                        returnStdout: true
-                    ).trim()
-
-                    if (zipCount.toInteger() == 0) {
-                        echo "Zip file is empty. Nothing to unzip."
-                        currentBuild.result = 'SUCCESS'
-                        return
-                    }
-
-                    echo "Zip file contains $zipCount file(s)."
-
-                    // Set environment for unzip stage
-                    env.DEST_DIR = "${WORKSPACE}/unzipped/${zipName}"
+                    ).trim()   //Jenkins doesn’t give the filename directly. This extracts.
+                    echo "Uploaded file path: ${filePath}"
+                    echo "Original file name: ${fileName}"   // Debugging, Confirming the correct file is uploaded
+                    sh "ls -l ${filePath}" //File exists, File size and permissions are visible, Upload is successful
                 }
             }
         }
 
-        stage('Unzip File') {
+        stage('Unzip file') {    //Extract the uploaded zip file to the destination directory 
             steps {
                 script {
                     sh """
-                        mkdir -p "$DEST_DIR"
-                        unzip -o "$WORKSPACE/UPLOAD_ZIP" -d "$DEST_DIR"
-                        ls -l "$DEST_DIR"
+                        mkdir -p ${DEST_DIR}   #Creates the destination directory if it doesn’t exist, -p avoids failure if directory already exists
+                        unzip -o ${params.UPLOAD_ZIP} -d ${DEST_DIR}  #extracts zip
+                        ls -l ${DEST_DIR}  #Files are successfully unzipped Shows extracted files
                     """
-                    echo "File unzipped to: $DEST_DIR"
+                    echo "File unzipped to ${DEST_DIR}"  
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo "Pipeline completed successfully ✅"
-        }
-        failure {
-            echo "Pipeline failed ❌"
         }
     }
 }
