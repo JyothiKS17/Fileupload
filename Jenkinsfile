@@ -15,7 +15,10 @@ pipeline {  //declarative pipeline
             steps {
                 script {        //We are using Groovy logic (new File()). Declarative pipeline needs script {} for advanced logic
                     def filePath = params.UPLOAD_ZIP   //Full path of the uploaded zip file in the workspace
-                    def fileName = new File(filePath).getName()  //Jenkins doesn’t give the filename directly. This extracts.
+                     def fileName = sh(
+                        script: "basename ${filePath}",
+                        returnStdout: true
+                    ).trim()   //Jenkins doesn’t give the filename directly. This extracts.
                     echo "Uploaded file path: ${filePath}"
                     echo "Original file name: ${fileName}"   // Debugging, Confirming the correct file is uploaded
                     sh "ls -l ${filePath}" //File exists, File size and permissions are visible, Upload is successful
@@ -26,7 +29,6 @@ pipeline {  //declarative pipeline
         stage('Unzip file') {    //Extract the uploaded zip file to the destination directory 
             steps {
                 script {
-                    def fileName = new File(params.UPLOAD_ZIP).getName()
                     sh """
                         mkdir -p ${DEST_DIR}   #Creates the destination directory if it doesn’t exist, -p avoids failure if directory already exists
                         unzip -o ${params.UPLOAD_ZIP} -d ${DEST_DIR}  #extracts zip
