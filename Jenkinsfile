@@ -1,63 +1,55 @@
 pipeline {
-    agent any // No default agent; we will assign per stage
+    agent { label 'jfrog' }  // everything runs on JFrog agent
 
     parameters {
         file(name: 'UPLOAD_ZIP', description: 'Upload your zip file here')
     }
 
     environment {
-        DEST_DIR = "unzipped"   // Folder on agent to unzip files
+        DEST_DIR = "${WORKSPACE}/unzipped" // Folder to unzip files
+        ZIP_FILE = "${WORKSPACE}/UPLOAD_ZIP" // Path to uploaded file
     }
 
     stages {
 
-        stage('Prepare Uploaded File on Controller') {
-            agent { label 'jfrog' } // run on Jenkins controller
+        stage('Verify Upload') {
             steps {
                 script {
-                    echo "Controller workspace: $WORKSPACE"
+                    echo "Workspace: $WORKSPACE"
+                    echo "Expected uploaded file path: $ZIP_FILE"
 
-                    // The uploaded file is automatically in the workspace with the parameter name
-                    def uploadedFile = "${WORKSPACE}/UPLOAD_ZIP"
+                    // Use shell to check if file exists
+                    def fileExists = sh(
+                        script: "[ -f '$ZIP_FILE' ] && echo 'YES' || echo 'NO'",
+                        returnStdout: true
+                    ).trim()
 
-                    if (!fileExists(uploadedFile)) {
-                        error "No file uploaded! Please use 'Build with Parameters'."
+                    if (fileExists == 'NO') {
+                        echo "No file uploaded! Please use 'Build with Parameters'. Skipping unzip."
+                        currentBuild.result = 'SUCCESS'
+                        return
                     }
 
-                    echo "Uploaded file exists on controller:"
-                    sh "ls -l ${uploadedFile}"
+                    echo "File exists!"
+                    sh "ls -l '$ZIP_FILE'"
 
-                    // Save it to be sent to agent
-                    stash includes: 'UPLOAD_ZIP', name: 'uploaded-zip'
-                    echo "File stashed for agent"
+                    // Show original filename
+                    sh 'echo "Original file name: $(basename \"$ZIP_FILE\")"'
                 }
             }
         }
 
-        stage('Process on JFrog Agent') {
-            agent { label 'jfrog' } // run on JFrog agent
+        stage('Unzip File') {
+            when {
+                expression { fileExists("$ZIP_FILE") == 'YES' } // Only unzip if file exists
+                 }
             steps {
-                script {
-                    echo "JFrog agent workspace: $WORKSPACE"
-
-                    // Retrieve the file from controller
-                    unstash 'uploaded-zip'
-
-                    echo "File received on agent:"
-                    sh "ls -l UPLOAD_ZIP"
-
-                    // Show original filename
-                    sh 'echo "Original file name: $(basename UPLOAD_ZIP)"'
-
-                    // Unzip
-                    sh """
-                        mkdir -p $DEST_DIR
-                        unzip -o UPLOAD_ZIP -d $DEST_DIR
-                        ls -l $DEST_DIR
-                    """
-
-                    echo "File unzipped to: $DEST_DIR"
-                }
+                sh """
+                    mkdir -p "$DEST_DIR"
+                    unzip -o "$ZIP_FILE" -d "$DEST_DIR"
+                    ls -l "$DEST_DIR"
+                """
+                echo "File unzipped to: $DEST_DIR"
             }
         }
     }
