@@ -1,3 +1,5 @@
+//Jenkins agents cannot accept direct uploads; all uploads go through the Jenkins controller. So we are uploading the file from local system to jenkins server
+
 pipeline {  //declarative pipeline
     agent { label 'jfrog' }  //job runs in jfrog node/slave
     parameters {
