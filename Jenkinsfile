@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'jfrog' } // No default agent; we will assign per stage
+    agent any // No default agent; we will assign per stage
 
     parameters {
         file(name: 'UPLOAD_ZIP', description: 'Upload your zip file here')
@@ -12,7 +12,7 @@ pipeline {
     stages {
 
         stage('Prepare Uploaded File on Controller') {
-            agent { label 'master' } // run on Jenkins controller
+            agent { label 'jfrog' } // run on Jenkins controller
             steps {
                 script {
                     echo "Controller workspace: $WORKSPACE"
