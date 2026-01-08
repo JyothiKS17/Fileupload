@@ -2,24 +2,30 @@ pipeline {
     agent none
 
     stages {
-        stage('Verify Upload on Controller') {
+
+        stage('Upload on Controller') {
             agent { label 'master' }
             steps {
                 sh '''
-                    echo "Running on controller"
-                    echo "WORKSPACE is: $WORKSPACE"
-                    echo "Listing workspace contents:"
-                    ls -l
+                    echo "Controller workspace:"
+                    ls -l $WORKSPACE
 
-                    echo "Checking uploaded file..."
-                    if [ -f "$WORKSPACE/UPLOAD_ZIP" ]; then
-                        echo "UPLOAD SUCCESS ON CONTROLLER"
-                        ls -lh "$WORKSPACE/UPLOAD_ZIP"
-                    else
-                        echo "UPLOAD FAILED"
-                        echo "Expected file at: $WORKSPACE/UPLOAD_ZIP"
+                    if [ ! -f "$WORKSPACE/UPLOAD_ZIP" ]; then
+                        echo "UPLOAD FAILED ON CONTROLLER"
                         exit 1
                     fi
+                '''
+                stash name: 'uploadedZip', includes: 'UPLOAD_ZIP'
+            }
+        }
+
+        stage('Use on JFrog Agent') {
+            agent { label 'jfrog' }
+            steps {
+                unstash 'uploadedZip'
+                sh '''
+                    echo "JFrog agent workspace:"
+                    ls -l $WORKSPACE
                 '''
             }
         }
