@@ -7,12 +7,12 @@ pipeline {
             steps {
                 sh '''
                     echo "Running on controller"
-                    echo "Workspace: $WORKSPACE"
+                    echo "Workspace: $workspace"
                     ls -l
 
-                    if [ -f "$WORKSPACE/UPLOAD_ZIP" ]; then
+                    if [ -f "$workspace/UPLOAD_ZIP" ]; then
                         echo "UPLOAD SUCCESS ON CONTROLLER"
-                        ls -lh "$WORKSPACE/UPLOAD_ZIP"
+                        ls -lh "$workspace/UPLOAD_ZIP"
                     else
                         echo "UPLOAD FAILED"
                         exit 1
