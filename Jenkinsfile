@@ -1,5 +1,5 @@
 pipeline {
-    agent none  // No default agent; we will assign per stage
+    agent { label 'jfrog' } // No default agent; we will assign per stage
 
     parameters {
         file(name: 'UPLOAD_ZIP', description: 'Upload your zip file here')
