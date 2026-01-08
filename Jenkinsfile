@@ -2,67 +2,59 @@ pipeline {
     agent { label 'jfrog' }
 
     options {
-        skipDefaultCheckout(true)   // No SCM checkout needed
+        skipDefaultCheckout(true)  // no SCM needed
     }
 
     parameters {
         file(
             name: 'UPLOAD_ZIP',
-            description: 'Upload your WinRAR ZIP file here'
+            description: 'Upload any small ZIP file to test'
         )
-    }
-
-    environment {
-        WORKSPACE_ZIP = "${WORKSPACE}/uploaded.zip"
-        DEST_DIR      = "${WORKSPACE}/unzipped"
     }
 
     stages {
 
-        stage('Validate and Copy Uploaded File') {
+        stage('Check if file is uploaded') {
             steps {
                 script {
                     if (!params.UPLOAD_ZIP?.trim()) {
-                        // Optional: fail or just warn
-                        error "No file uploaded. Please upload a ZIP file."
+                        error "No file uploaded. Make sure you use 'Build with Parameters' and select a file."
                     } else {
-                        echo "File uploaded: ${params.UPLOAD_ZIP}"
+                        echo "File parameter received: ${params.UPLOAD_ZIP}"
 
-                        // Copy the uploaded file to agent workspace
+                        // Show where the file exists on the agent
                         sh """
-                            cp "${params.UPLOAD_ZIP}" "${WORKSPACE_ZIP}"
-                            echo "Copied uploaded file to agent workspace:"
-                            ls -lh "${WORKSPACE_ZIP}"
+                            echo "Agent workspace: ${WORKSPACE}"
+                            echo "Listing file details from controller temp path:"
+                            ls -lh "${params.UPLOAD_ZIP}"
+
+                            # Copy file to workspace to make it permanent
+                            cp "${params.UPLOAD_ZIP}" "${WORKSPACE}/uploaded_test.zip"
+
+                            echo "File copied to workspace:"
+                            ls -lh "${WORKSPACE}/uploaded_test.zip"
                         """
                     }
                 }
             }
         }
 
-        stage('Unzip File') {
+        stage('Verify copied file') {
             steps {
-                script {
-                    sh """
-                        mkdir -p "${DEST_DIR}"
-                        echo "Unzipping ${WORKSPACE_ZIP} to ${DEST_DIR}..."
-
-                        # Use 7z for WinRAR-compatible ZIP files
-                        7z x "${WORKSPACE_ZIP}" -o"${DEST_DIR}"
-
-                        echo "Contents of unzipped directory:"
-                        ls -l "${DEST_DIR}"
-                    """
-                }
+                sh """
+                    echo "Contents of workspace after copy:"
+                    ls -l "${WORKSPACE}"
+                """
             }
         }
     }
 
     post {
         success {
-            echo "✅ ZIP file uploaded and extracted successfully."
+            echo "✅ File upload test completed successfully."
         }
         failure {
-            echo "❌ Pipeline failed. Check logs for details."
+            echo "❌ File upload test failed."
         }
     }
 }
