@@ -2,13 +2,13 @@ pipeline {
     agent { label 'jfrog' }
 
     options {
-        skipDefaultCheckout(true)   // No SCM needed
+        skipDefaultCheckout(true)   // No SCM checkout needed
     }
 
     parameters {
         file(
             name: 'UPLOAD_ZIP',
-            description: 'Upload your zip file here'
+            description: 'Upload your WinRAR ZIP file here'
         )
     }
 
@@ -19,45 +19,50 @@ pipeline {
 
     stages {
 
-        stage('Prepare Uploaded File on Agent') {
+        stage('Validate and Copy Uploaded File') {
             steps {
                 script {
                     if (!params.UPLOAD_ZIP?.trim()) {
+                        // Optional: fail or just warn
                         error "No file uploaded. Please upload a ZIP file."
+                    } else {
+                        echo "File uploaded: ${params.UPLOAD_ZIP}"
+
+                        // Copy the uploaded file to agent workspace
+                        sh """
+                            cp "${params.UPLOAD_ZIP}" "${WORKSPACE_ZIP}"
+                            echo "Copied uploaded file to agent workspace:"
+                            ls -lh "${WORKSPACE_ZIP}"
+                        """
                     }
-
-                    sh """
-                        echo "Uploaded file reference  : ${params.UPLOAD_ZIP}"
-                        echo "Copying uploaded file to agent workspace..."
-
-                        cp "${params.UPLOAD_ZIP}" "${WORKSPACE_ZIP}"
-
-                        echo "Verifying copied file:"
-                        ls -lh "${WORKSPACE_ZIP}"
-                    """
                 }
             }
         }
 
         stage('Unzip File') {
             steps {
-                sh """
-                    mkdir -p "${DEST_DIR}"
-                    unzip -o "${WORKSPACE_ZIP}" -d "${DEST_DIR}"
+                script {
+                    sh """
+                        mkdir -p "${DEST_DIR}"
+                        echo "Unzipping ${WORKSPACE_ZIP} to ${DEST_DIR}..."
 
-                    echo "Unzipped files:"
-                    ls -l "${DEST_DIR}"
-                """
+                        # Use 7z for WinRAR-compatible ZIP files
+                        7z x "${WORKSPACE_ZIP}" -o"${DEST_DIR}"
+
+                        echo "Contents of unzipped directory:"
+                        ls -l "${DEST_DIR}"
+                    """
+                }
             }
         }
     }
 
     post {
         success {
-            echo "ZIP file uploaded and extracted successfully."
+            echo "✅ ZIP file uploaded and extracted successfully."
         }
         failure {
-            echo "Pipeline failed. Check logs for details."
+            echo "❌ Pipeline failed. Check logs for details."
         }
     }
 }
