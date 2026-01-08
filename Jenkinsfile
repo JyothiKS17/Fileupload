@@ -44,3 +44,19 @@ pipeline {
                         mkdir -p $DEST_DIR               # Create destination folder
                         unzip -o $ZIP_FILE -d $DEST_DIR  # Extract uploaded zip
                         ls -l
+						"""
+                    echo "File unzipped to: $DEST_DIR"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully ✅"
+        }
+        failure {
+            echo "Pipeline failed ❌"
+        }
+    }
+}
