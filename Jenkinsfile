@@ -5,52 +5,47 @@ pipeline {
         file(name: 'UPLOAD_ZIP', description: 'Upload your zip file here')
     }
 
-    environment {
-        DEST_DIR = "${WORKSPACE}/unzipped" // Folder to unzip files
-        ZIP_FILE = "${WORKSPACE}/UPLOAD_ZIP" // Path to uploaded file
-    }
-
     stages {
 
         stage('Verify Upload') {
             steps {
                 script {
+                    def zipFile = "${WORKSPACE}/UPLOAD_ZIP"
                     echo "Workspace: $WORKSPACE"
-                    echo "Expected uploaded file path: $ZIP_FILE"
+                    echo "Uploaded file path: $zipFile"
 
                     // Check if file exists
-                    def fileExists = sh(
-                        script: "[ -f '$ZIP_FILE' ] && echo 'YES' || echo 'NO'",
-                        returnStdout: true
-                    ).trim()
-
-                    if (fileExists == 'NO') {
+                    if (!fileExists(zipFile)) {
                         echo "No file uploaded! Please use 'Build with Parameters'. Skipping unzip."
                         currentBuild.result = 'SUCCESS'
                         return
                     }
 
-                    echo "File exists!"
-                    sh "ls -l '$ZIP_FILE'"
+                    echo "File exists:"
+                    sh "ls -l '$zipFile'"
 
                     // Check if file is a valid zip
                     def isZip = sh(
-                        script: "file '$ZIP_FILE' | grep -i zip && echo 'YES' || echo 'NO'",
+                        script: "file '$zipFile' | grep -i zip && echo 'YES' || echo 'NO'",
                         returnStdout: true
                     ).trim()
 
                     if (isZip == 'NO') {
-                        echo "Uploaded file is not a valid zip file. Skipping unzip."
+                        echo "Uploaded file is not a valid zip. Skipping unzip."
                         currentBuild.result = 'SUCCESS'
                         return
                     }
 
                     // Show original filename
-                    sh 'echo "Original file name: $(basename \"$ZIP_FILE\")"'
+                    def zipName = sh(
+                        script: "basename '$zipFile' .zip",
+                        returnStdout: true
+                    ).trim()
+                    echo "Original file name (without extension): $zipName"
 
                     // Check if zip has content
                     def zipCount = sh(
-                        script: "unzip -l '$ZIP_FILE' | grep -v '^Archive' | grep -v '^--------' | grep -v '^$' | wc -l",
+                        script: 'unzip -l "$ZIP_FILE" | grep -v "^Archive" | grep -v "^--------" | grep -v "^$" | wc -l',
                         returnStdout: true
                     ).trim()
 
@@ -60,19 +55,24 @@ pipeline {
                         return
                     }
 
-                    echo "Zip file contains $zipCount files."
+                    echo "Zip file contains $zipCount file(s)."
+
+                    // Set environment for unzip stage
+                    env.DEST_DIR = "${WORKSPACE}/unzipped/${zipName}"
                 }
             }
         }
 
         stage('Unzip File') {
             steps {
-                sh """
-                    mkdir -p "$DEST_DIR"
-                    unzip -o "$ZIP_FILE" -d "$DEST_DIR"
-                    ls -l "$DEST_DIR"
-                """
-                echo "File unzipped to: $DEST_DIR"
+                script {
+                    sh """
+                        mkdir -p "$DEST_DIR"
+                        unzip -o "$WORKSPACE/UPLOAD_ZIP" -d "$DEST_DIR"
+                        ls -l "$DEST_DIR"
+                    """
+                    echo "File unzipped to: $DEST_DIR"
+                }
             }
         }
     }
