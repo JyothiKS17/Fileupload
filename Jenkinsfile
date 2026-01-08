@@ -1,19 +1,20 @@
 pipeline {
-    agent any
+    agent none
 
     stages {
-        stage('Verify Upload') {
+        stage('Verify Upload on Controller') {
+            agent { label 'master' }   // controller
             steps {
                 sh '''
+                    echo "Running on controller"
                     echo "Workspace: $WORKSPACE"
-                    echo "Files in workspace:"
                     ls -l
 
                     if [ -f "$WORKSPACE/UPLOAD_ZIP" ]; then
-                        echo "Upload SUCCESS"
+                        echo "UPLOAD SUCCESS ON CONTROLLER"
                         ls -lh "$WORKSPACE/UPLOAD_ZIP"
                     else
-                        echo "Upload FAILED"
+                        echo "UPLOAD FAILED"
                         exit 1
                     fi
                 '''
